@@ -1,17 +1,22 @@
 import 'dart:convert';
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:mqtt_client/mqtt_client.dart';
+import 'package:qrscan2/qrscan2.dart' as scanner;
+import 'package:permission_handler/permission_handler.dart';
 
 import 'package:althea/model/MQTTManager.dart';
 import 'package:althea/model/pasien.dart';
-import 'package:flutter/material.dart';
-import 'package:mqtt_client/mqtt_client.dart';
 
 class GetDataPengukuran extends StatefulWidget {
-  
   late Pasien pasien;
   GetDataPengukuran({Key? key, required this.pasien}) : super(key: key);
 
   @override
-  _GetDataPengukuranState createState() => _GetDataPengukuranState(pasien: pasien);
+  _GetDataPengukuranState createState() =>
+      _GetDataPengukuranState(pasien: pasien);
 }
 
 class _GetDataPengukuranState extends State<GetDataPengukuran> {
@@ -20,18 +25,19 @@ class _GetDataPengukuranState extends State<GetDataPengukuran> {
 
   late MqttClient client;
 
+  String qrcode = "";
   String state = 'Disconnected';
 
   String topic = 'ALTHEATESTER/';
+
   final TextEditingController _topicsController = TextEditingController();
 
   Map<String, dynamic> mqttData = {};
 
-  Widget CmdMsg(){
-    if(state == 'Disconnected'){
+  Widget CmdMsg() {
+    if (state == 'Disconnected') {
       return Container();
-    }
-    else{
+    } else {
       return Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
@@ -39,7 +45,10 @@ class _GetDataPengukuranState extends State<GetDataPengukuran> {
         ),
         margin: const EdgeInsets.all(10),
         padding: const EdgeInsets.all(10.0),
-        child: const Text("Silahkan Kirim Data Pengukuran pada Alat", textAlign: TextAlign.center,),
+        child: const Text(
+          "Silahkan Kirim Data Pengukuran pada Alat",
+          textAlign: TextAlign.center,
+        ),
       );
     }
   }
@@ -103,50 +112,84 @@ class _GetDataPengukuranState extends State<GetDataPengukuran> {
                 ),
               ),
             ),
-            Container(
-              margin: const EdgeInsets.only(top:20, bottom:10),
-              padding: const EdgeInsets.all(10.0),
-              decoration: BoxDecoration(
-                color: const Color.fromARGB(255, 112, 255, 116),
-                borderRadius: BorderRadius.circular(5),
-              ),
-              child: TextButton(
-                onPressed: () {
-                  print("Tapped item 1");
-                  setState((){
-                    state = 'Connecting';
-                  });
-                  connect().then((value) {
-                    print('Connected');
-                    client = value;
-                    client.subscribe(topic+_topicsController.text, MqttQos.exactlyOnce);
-                    client.updates!.listen((List<MqttReceivedMessage<MqttMessage?>>? c) {
-                      final recMess = c![0].payload as MqttPublishMessage;
-                      final pt = MqttPublishPayload.bytesToStringAsString(
-                          recMess.payload.message);
-                      /// The above may seem a little convoluted for users only interested in the
-                      /// payload, some users however may be interested in the received publish message,
-                      /// lets not constrain ourselves yet until the package has been in the wild
-                      /// for a while.
-                      /// The payload is a byte buffer, this will be specific to the topic
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 20, bottom: 10),
+                  padding: const EdgeInsets.only(
+                      top: 10, bottom: 10, right: 20, left: 20),
+                  decoration: BoxDecoration(
+                    color: Color.fromARGB(255, 92, 255, 97),
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: TextButton(
+                    onPressed: () {
                       setState(() {
-                        mqttData = jsonDecode(pt);
+                        state = 'Connecting';
                       });
-                    });
-                  });
-                },
-                child: const Text(
-                  'Ambil Data',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.white,
+                      connect().then((value) {
+                        print('Connected');
+                        client = value;
+                        client.subscribe(topic + _topicsController.text,
+                            MqttQos.exactlyOnce);
+                        client.updates!.listen(
+                            (List<MqttReceivedMessage<MqttMessage?>>? c) {
+                          final recMess = c![0].payload as MqttPublishMessage;
+                          final pt = MqttPublishPayload.bytesToStringAsString(
+                              recMess.payload.message);
+                          setState(() {
+                            mqttData = jsonDecode(pt);
+                          });
+                        });
+                      });
+                    },
+                    child: const Text(
+                      'Ambil Data',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                Container(
+                  margin: const EdgeInsets.only(top: 20, bottom: 10),
+                  padding: const EdgeInsets.only(
+                      top: 10, bottom: 10, right: 20, left: 20),
+                  decoration: BoxDecoration(
+                    color: Color.fromARGB(255, 43, 177, 255),
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: TextButton(
+                    onPressed: () async {
+                      try {
+                        await Permission.camera.request();
+                        String? barcode = await scanner.scan();
+                        if (barcode == null) {
+                          _topicsController.text =
+                              'Tidak ad Qr Code Terdeteksi';
+                        } else {
+                          _topicsController.text = barcode;
+                        }
+                      } catch (e) {
+                        _topicsController.text = e.toString();
+                      }
+                    },
+                    child: const Text(
+                      'Scan QrCode',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
             CmdMsg(),
             Container(
-              margin: const EdgeInsets.only(top:10, bottom:10),
+              margin: const EdgeInsets.only(top: 10, bottom: 10),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
@@ -156,7 +199,7 @@ class _GetDataPengukuranState extends State<GetDataPengukuran> {
                 ),
               ),
               child: DataTable(
-                columnSpacing: 0, 
+                columnSpacing: 0,
                 columns: const <DataColumn>[
                   DataColumn(
                     label: Text("No"),

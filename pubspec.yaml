@@ -36,6 +36,9 @@ dependencies:
   cupertino_icons: ^1.0.2
   mqtt_client: ^9.6.8
   provider: ^5.0.0 
+  # A Flutter plugin for scanning 2D barcodes and QRCodes via camera.
+  qrscan2: ^0.1.0
+  permission_handler: ^10.0.0
 
 dev_dependencies:
   flutter_test:
