@@ -1,21 +1,24 @@
-class Pemeriksaan{
-	int idPemeriksaan;
-	int idPasien;
-  String gender;
-  String estimasiTinggiBadan;
-  String estimasiBeratBadan;
-  String statusGizi;
-  String lingkarKepala;
-  String lingkarLengan;
+class Pemeriksaan {
+  int idPemeriksaan;
+  int idPasien;
+  double estimasiTinggiBadan;
+  double estimasiBeratBadan;
+  double statusGizi;
+  double lingkarKepala;
+  double lingkarLengan;
+  double panjangUlna;
+  double suhu;
 
-	Pemeriksaan({
-		required this.idPemeriksaan,
-		required this.idPasien,
-    required this.gender,
+
+  Pemeriksaan({
+    required this.idPemeriksaan,
+    required this.idPasien,
     required this.estimasiTinggiBadan,
     required this.estimasiBeratBadan,
     required this.statusGizi,
     required this.lingkarKepala,
-    required this.lingkarLengan
-	});
+    required this.lingkarLengan,
+    required this.panjangUlna,
+    required this.suhu,
+  });
 }

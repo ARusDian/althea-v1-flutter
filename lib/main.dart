@@ -1,9 +1,5 @@
 import 'package:althea/app/components/navbar_bottom.dart';
-import 'package:althea/app/dashboard/tambah_pasien.dart';
-import 'package:althea/model/pasien.dart';
 import 'package:flutter/material.dart';
-
-import 'app/pemeriksaan/get_data_pemeriksaan.dart';
 
 void main() {
   runApp(const MyApp());
@@ -19,10 +15,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      // home: GetDataPengukuran(pasien: listPasien[2])
-      home: MainPage(),
-      // home: const TambahPasien()
-      // home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const MainPage(),
     );
   }
 }

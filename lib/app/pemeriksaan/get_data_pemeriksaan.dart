@@ -1,14 +1,25 @@
 import 'dart:convert';
-import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:qrscan2/qrscan2.dart' as scanner;
+import 'package:http/http.dart' as http;
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'package:althea/model/MQTTManager.dart';
 import 'package:althea/model/pasien.dart';
+
+enum IotDataState {
+  waitingIotData,
+  sendingIotData,
+  dataAPISended,
+}
+
+enum MqttState {
+  disconnected,
+  connecting,
+}
 
 class GetDataPengukuran extends StatefulWidget {
   late Pasien pasien;
@@ -26,16 +37,21 @@ class _GetDataPengukuranState extends State<GetDataPengukuran> {
   late MqttClient client;
 
   String qrcode = "";
-  String state = 'Disconnected';
+
+  MqttState mqttState = MqttState.disconnected;
 
   String topic = 'ALTHEATESTER/';
+
+  String statusMessage = '';
+
+  IotDataState iotDataState = IotDataState.waitingIotData;
 
   final TextEditingController _topicsController = TextEditingController();
 
   Map<String, dynamic> mqttData = {};
 
   Widget CmdMsg() {
-    if (state == 'Disconnected') {
+    if (mqttState == MqttState.disconnected) {
       return Container();
     } else {
       return Container(
@@ -118,18 +134,17 @@ class _GetDataPengukuranState extends State<GetDataPengukuran> {
                 Container(
                   margin: const EdgeInsets.only(top: 20, bottom: 10),
                   padding: const EdgeInsets.only(
-                      top: 10, bottom: 10, right: 20, left: 20),
+                      top: 5, bottom: 5, right: 10, left: 10),
                   decoration: BoxDecoration(
-                    color: Color.fromARGB(255, 92, 255, 97),
+                    color: Color.fromARGB(255, 45, 141, 120),
                     borderRadius: BorderRadius.circular(5),
                   ),
                   child: TextButton(
                     onPressed: () {
                       setState(() {
-                        state = 'Connecting';
+                        mqttState = MqttState.connecting;
                       });
                       connect().then((value) {
-                        print('Connected');
                         client = value;
                         client.subscribe(topic + _topicsController.text,
                             MqttQos.exactlyOnce);
@@ -140,6 +155,8 @@ class _GetDataPengukuranState extends State<GetDataPengukuran> {
                               recMess.payload.message);
                           setState(() {
                             mqttData = jsonDecode(pt);
+                            iotDataState = IotDataState.sendingIotData;
+                            print(iotDataState);
                           });
                         });
                       });
@@ -156,9 +173,9 @@ class _GetDataPengukuranState extends State<GetDataPengukuran> {
                 Container(
                   margin: const EdgeInsets.only(top: 20, bottom: 10),
                   padding: const EdgeInsets.only(
-                      top: 10, bottom: 10, right: 20, left: 20),
+                      top: 5, bottom: 5, right: 10, left: 10),
                   decoration: BoxDecoration(
-                    color: Color.fromARGB(255, 43, 177, 255),
+                    color: Color.fromARGB(255, 34, 142, 204),
                     borderRadius: BorderRadius.circular(5),
                   ),
                   child: TextButton(
@@ -178,6 +195,66 @@ class _GetDataPengukuranState extends State<GetDataPengukuran> {
                     },
                     child: const Text(
                       'Scan QrCode',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+                Container(
+                  margin: const EdgeInsets.only(top: 20, bottom: 10),
+                  padding: const EdgeInsets.only(
+                      top: 5, bottom: 5, right: 10, left: 10),
+                  decoration: BoxDecoration(
+                    color: Color.fromARGB(255, 43, 177, 255),
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: TextButton(
+                    onPressed: () async {
+                      print(iotDataState);
+                      if (iotDataState == IotDataState.sendingIotData) {
+                        await dotenv.load(fileName: ".env");
+                        String url = '${dotenv.env['APISERVER']}';
+                        http.post(
+                          Uri.parse('$url/api/rekam-pengukuran/store/'),
+                          headers: <String, String>{
+                            'Content-Type': 'application/json; charset=UTF-8',
+                          },
+                          body: jsonEncode(<String, dynamic>{
+                            "pasienId": pasien.idPasien,
+                            "lingkar_lengan": mqttData["lingkarLengan"],
+                            "lingkar_kepala": mqttData["lingkarKepala"],
+                            "panjang_ulna": mqttData["panjangUlna"],
+                            "suhu": mqttData["suhu"],
+                            "tinggi_badan": mqttData["tinggiBadan"],
+                            "BEE": mqttData["BEE"],
+                            "berat_badan": mqttData["beratBadan"],
+                            "status_gizi": mqttData["statusGizi"],
+                          }),
+                        );
+                        setState(() {
+                          iotDataState = IotDataState.dataAPISended;
+                          statusMessage = 'Data Berhasil Dikirim';
+                        });
+                      } else if (iotDataState == IotDataState.waitingIotData) {
+                        statusMessage = 'Tunggu Data dari Alat';
+                      } else if (iotDataState == IotDataState.dataAPISended) {
+                        statusMessage = 'Data telah dikirim ke Server';
+                      } else {
+                        statusMessage = 'Data Tidak Ditemukan';
+                      }
+                      final snackBar = SnackBar(
+                        content: Text(statusMessage),
+                        action: SnackBarAction(
+                          label: 'OK',
+                          onPressed: () {},
+                        ),
+                      );
+                      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+                    },
+                    child: const Text(
+                      'Kirim Data',
                       style: TextStyle(
                         fontSize: 15,
                         color: Colors.white,
@@ -247,7 +324,7 @@ class _GetDataPengukuranState extends State<GetDataPengukuran> {
                         Text("Estimasi Tinggi Badan"),
                       ),
                       DataCell(
-                        Text("${mqttData['estimasi_tinggi_badan'] ?? ''} Cm"),
+                        Text("${mqttData['tinggiBadan'] ?? ''} Cm"),
                       ),
                     ],
                   ),
@@ -260,7 +337,7 @@ class _GetDataPengukuranState extends State<GetDataPengukuran> {
                         Text("Estimasi Berat Badan"),
                       ),
                       DataCell(
-                        Text("${mqttData['estimasi_berat_badan'] ?? ''} Cm"),
+                        Text("${mqttData['beratBadan'] ?? ''} Kg"),
                       ),
                     ],
                   ),
@@ -273,7 +350,7 @@ class _GetDataPengukuranState extends State<GetDataPengukuran> {
                         Text("Status Gizi"),
                       ),
                       DataCell(
-                        Text("${mqttData['status_gizi'] ?? ''}"),
+                        Text("${mqttData['statusGizi'] ?? ''}"),
                       ),
                     ],
                   ),
@@ -286,7 +363,7 @@ class _GetDataPengukuranState extends State<GetDataPengukuran> {
                         Text("Lingkar Kepala"),
                       ),
                       DataCell(
-                        Text("${mqttData['lingkar_kepala'] ?? ''} Cm"),
+                        Text("${mqttData['lingkarKepala'] ?? ''} Cm"),
                       ),
                     ],
                   ),
@@ -299,7 +376,20 @@ class _GetDataPengukuranState extends State<GetDataPengukuran> {
                         Text("Lingkar Lengan"),
                       ),
                       DataCell(
-                        Text("${mqttData['lingkar_lengan'] ?? ''} Cm"),
+                        Text("${mqttData['lingkarLengan'] ?? ''} Cm"),
+                      ),
+                    ],
+                  ),
+                  DataRow(
+                    cells: <DataCell>[
+                      const DataCell(
+                        Text("8"),
+                      ),
+                      const DataCell(
+                        Text("Panjang Ulna"),
+                      ),
+                      DataCell(
+                        Text("${mqttData['panjangUlna'] ?? ''} Cm"),
                       ),
                     ],
                   ),

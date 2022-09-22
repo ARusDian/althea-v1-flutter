@@ -1,5 +1,3 @@
-// ignore_for_file: library_private_types_in_public_api
-
 import 'package:althea/app/dashboard/dashboard.dart';
 import 'package:althea/app/homepage.dart';
 import 'package:flutter/material.dart';
@@ -52,9 +50,9 @@ class _BottomNavBarState extends State<BottomNavBar> {
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            activeIcon: Icon(Icons.person_outline_sharp),
-            label : "Profil"
+            icon: Icon(Icons.view_list),
+            activeIcon: Icon(Icons.view_list_outlined),
+            label : "Petunjuk",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.calendar_month),
